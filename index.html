@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF OCR - Extraction Facture Coolmark</title>
+    <title>PDF OCR - Extracteur Universel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -11,60 +11,75 @@
         .copy-btn { transition: all 0.2s; cursor: pointer; }
         .copy-btn:active { transform: scale(0.95); }
         .raw-text { font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+        .selected-row { background-color: #dbeafe !important; }
     </style>
 </head>
 <body class="bg-gray-100 p-6">
 
 <div class="max-w-7xl mx-auto">
     <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">📄 PDF OCR - Extraction Facture</h1>
-        <p class="text-gray-600">Extraction de : <span class="font-semibold text-blue-600">Artikelnummer</span> | <span class="font-semibold text-green-600">Omschrijving</span> | <span class="font-semibold text-orange-600">Aantal</span> | <span class="font-semibold text-purple-600">Totaal</span></p>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">📄 OCR Extracteur Universel</h1>
+        <p class="text-gray-600">Extrait <span class="font-semibold text-blue-600">Artikel</span> | <span class="font-semibold text-green-600">Omschrijving</span> | <span class="font-semibold text-orange-600">Aantal</span> | <span class="font-semibold text-purple-600">Totaal</span> de n'importe quelle facture</p>
     </div>
 
+    <!-- Upload -->
     <div class="bg-white rounded-xl shadow-md p-6 mb-6">
         <div id="uploadZone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition">
             <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg" class="hidden" />
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
             </svg>
-            <p class="mt-2 text-gray-600">📎 Cliquez ou glissez un fichier (PDF ou image)</p>
+            <p class="mt-2 text-gray-600">📎 PDF ou Image (scanner/facture)</p>
         </div>
         <div id="status" class="mt-4 text-sm text-gray-500 hidden"></div>
         
-        <div class="mt-4">
-            <button id="toggleRawText" class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded">🔍 Afficher le texte OCR brut</button>
-            <div id="rawTextContainer" class="hidden mt-3 p-3 bg-gray-100 rounded-lg max-h-96 overflow-auto">
-                <pre id="rawTextContent" class="raw-text text-xs"></pre>
-            </div>
+        <div class="mt-4 flex gap-2">
+            <button id="toggleRawText" class="text-xs bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded">🔍 Texte OCR brut</button>
+            <button id="autoDetectBtn" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">🤖 Détection automatique</button>
+        </div>
+        <div id="rawTextContainer" class="hidden mt-3 p-3 bg-gray-100 rounded-lg max-h-64 overflow-auto">
+            <pre id="rawTextContent" class="raw-text text-xs"></pre>
         </div>
     </div>
 
+    <!-- Configuration manuelle -->
+    <div id="configPanel" class="bg-white rounded-xl shadow-md p-6 mb-6 hidden">
+        <h3 class="font-semibold text-gray-700 mb-3">⚙️ Configuration manuelle</h3>
+        <p class="text-sm text-gray-500 mb-3">Cliquez sur une cellule pour indiquer quelle colonne contient quoi :</p>
+        <div class="flex gap-4 flex-wrap mb-4">
+            <button id="mapArtikelBtn" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">📌 Définir colonne ARTIKEL</button>
+            <button id="mapDescBtn" class="bg-green-500 text-white px-3 py-1 rounded text-sm">📌 Définir colonne OMSCHRIJVING</button>
+            <button id="MapQtyBtn" class="bg-orange-500 text-white px-3 py-1 rounded text-sm">📌 Définir colonne AANTAL</button>
+            <button id="mapTotalBtn" class="bg-purple-500 text-white px-3 py-1 rounded text-sm">📌 Définir colonne TOTAAL</button>
+            <button id="clearMappingBtn" class="bg-gray-500 text-white px-3 py-1 rounded text-sm">🗑️ Effacer mapping</button>
+        </div>
+        <div id="mappingStatus" class="text-sm text-gray-600"></div>
+    </div>
+
+    <!-- Résultats -->
     <div class="bg-white rounded-xl shadow-md overflow-hidden">
-        <div class="bg-gray-50 px-6 py-3 border-b flex justify-between items-center">
+        <div class="bg-gray-50 px-6 py-3 border-b flex justify-between items-center flex-wrap gap-2">
             <div>
                 <h2 class="font-semibold text-gray-700">📋 Données extraites</h2>
                 <p class="text-xs text-gray-500" id="rowCount">0 ligne(s)</p>
             </div>
-            <button id="exportAllBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg shadow text-sm">
-                📥 Exporter CSV
-            </button>
+            <div class="flex gap-2">
+                <button id="exportAllBtn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg shadow text-sm">📥 CSV</button>
+                <button id="copyAllArtikelBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg shadow text-sm">📋 Copier tous les Artikel</button>
+            </div>
         </div>
         
         <div class="overflow-x-auto">
-            <table id="dataTable" class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Artikelnummer</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Omschrijving</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aantal</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Totaal (€)</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody" class="divide-y divide-gray-200 bg-white">
-                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">En attente d'un fichier...</td></tr>
-                </tbody>
-            </table>
+            <div id="tableWrapper" class="max-h-96 overflow-auto">
+                <table id="dataTable" class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead id="tableHeader" class="bg-gray-50 sticky top-0">
+                        <!-- Dynamique -->
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-gray-200 bg-white">
+                        <tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">En attente d'un fichier...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
@@ -74,8 +89,17 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-    let extractedData = [];
     let rawOcrText = "";
+    let parsedRows = [];      // Tableau de tableaux (lignes x colonnes)
+    let headers = [];         // En-têtes détectés
+    let mapping = {           // Mapping des colonnes
+        artikel: -1,
+        omschrijving: -1,
+        aantal: -1,
+        totaal: -1
+    };
+    let selectedMapping = null; // Pour le mapping manuel
+    let extractedData = [];
 
     function showToast(message, isError = false) {
         const toast = document.getElementById('toast');
@@ -88,175 +112,259 @@
     async function copyToClipboard(text, label) {
         try {
             await navigator.clipboard.writeText(text);
-            showToast(`✅ ${label} : ${text.substring(0, 40)}${text.length > 40 ? '...' : ''}`);
+            showToast(`✅ ${label} : ${text.substring(0, 50)}`);
         } catch (err) {
-            showToast(`❌ Erreur: ${err}`, true);
+            showToast(`❌ Erreur`, true);
         }
     }
 
-    // Extraction spécifique pour le format Coolmark
-    function extractFromCoolmarkInvoice(ocrText) {
+    // Parser le texte OCR en tableau
+    function parseOcrToTable(ocrText) {
         const lines = ocrText.split(/\r?\n/);
-        const results = [];
+        const dataRows = [];
+        let detectedHeaders = [];
         
-        // Pattern pour une ligne de produit Coolmark
-        // Exemple: "1,00 7205131 Aircool Filter t.b.v. ENY-6 21-05-2026 2,00 PCE 119,00 68,00 76,16"
-        // Structure: [volgorde?] [artikelnummer] [description...] [datum] [aantal] [eenheid] [prijs] [korting%] [totaal]
+        // Détection d'en-têtes : chercher une ligne avec des mots-clés
+        for (let i = 0; i < Math.min(lines.length, 30); i++) {
+            const lowerLine = lines[i].toLowerCase();
+            if ((lowerLine.includes('artikel') || lowerLine.includes('product') || lowerLine.includes('description') ||
+                 lowerLine.includes('omschrijving') || lowerLine.includes('aantal') || lowerLine.includes('quantity') ||
+                 lowerLine.includes('prijs') || lowerLine.includes('totaal') || lowerLine.includes('total')) &&
+                 lines[i].split(/\s{2,}|\t/).length >= 3) {
+                
+                detectedHeaders = lines[i].split(/\s{2,}|\t/).map(h => h.trim());
+                // Nettoyer les en-têtes
+                detectedHeaders = detectedHeaders.filter(h => h.length > 0 && !h.match(/^-+$/));
+                break;
+            }
+        }
         
+        if (detectedHeaders.length === 0 && lines.length > 0) {
+            // Fallback: utiliser la première ligne non vide comme en-tête
+            for (let line of lines) {
+                const parts = line.split(/\s{2,}|\t/).filter(p => p.trim().length > 0);
+                if (parts.length >= 3) {
+                    detectedHeaders = parts;
+                    break;
+                }
+            }
+        }
+        
+        // Parcourir les lignes pour extraire les données
         for (let line of lines) {
             line = line.trim();
-            if (line.length < 20) continue;
+            if (line.length === 0) continue;
             
-            // Ignorer les lignes qui ne contiennent pas de données produit
-            if (line.includes('Afleveradres') || line.includes('Factuuradres') || 
-                line.includes('Totaalbedrag') || line.includes('Netto totaalbedrag') ||
-                line.includes('COOLMARK') || line.includes('Verkoop binnenland') ||
-                line.includes('HS-code') || line.includes('BTW') ||
-                line.match(/^[A-Z]/) && !line.match(/\d/)) continue;
+            // Ignorer les lignes de total/footer
+            if (line.toLowerCase().includes('totaal') && !line.match(/\d{3,}/)) continue;
+            if (line.match(/^[A-Z\s]{10,}$/)) continue;
             
-            // Chercher un nombre à 7 chiffres (artikelnummer comme 7205131)
-            const artikelMatch = line.match(/\b(\d{7})\b/);
-            if (!artikelMatch) continue;
-            
-            const artikel = artikelMatch[1];
-            
-            // Chercher la quantité (généralement un nombre avec virgule suivi de PCE/STUKS)
-            const qtyMatch = line.match(/(\d+[\.,]\d{2})\s*(?:PCE|STUKS|stuks?)/i);
-            if (!qtyMatch) continue;
-            
-            const aantal = qtyMatch[1].replace(',', '.');
-            
-            // Chercher le total à la fin de la ligne (dernier nombre décimal)
-            const allDecimals = line.match(/\d+[\.,]\d{2}/g);
-            if (!allDecimals || allDecimals.length < 2) continue;
-            
-            // Le total est généralement le dernier nombre décimal
-            let totaal = allDecimals[allDecimals.length - 1].replace(',', '.');
-            
-            // Extraire la description (tout entre artikel et quantité)
-            const artikelPos = line.indexOf(artikel);
-            const qtyPos = line.indexOf(qtyMatch[0]);
-            
-            let description = "";
-            if (artikelPos !== -1 && qtyPos !== -1 && qtyPos > artikelPos) {
-                description = line.substring(artikelPos + artikel.length, qtyPos).trim();
-                // Nettoyer la description des dates et autres éléments
-                description = description.replace(/\d{2}-\d{2}-\d{4}/g, '').trim();
-                description = description.replace(/\s+/g, ' ').trim();
-            } else {
-                // Fallback: prendre tout après artikel jusqu'au prochain nombre
-                const afterArtikel = line.substring(artikelPos + artikel.length);
-                const parts = afterArtikel.split(/\s+/);
-                const descParts = [];
-                for (let part of parts) {
-                    if (part.match(/^\d+[\.,]\d{2}$/) || part.match(/^\d{2}-\d{2}-\d{4}$/) || part === 'PCE' || part === 'STUKS') {
-                        break;
-                    }
-                    descParts.push(part);
-                }
-                description = descParts.join(' ');
-            }
-            
-            if (artikel && description && aantal && totaal) {
-                results.push({
-                    artikel: artikel,
-                    omschrijving: description,
-                    aantal: aantal,
-                    totaal: totaal
-                });
+            const cells = line.split(/\s{2,}|\t/).map(c => c.trim()).filter(c => c.length > 0);
+            if (cells.length >= 3 && !cells.some(c => detectedHeaders.includes(c))) {
+                // Ajuster la taille pour correspondre aux en-têtes
+                while (cells.length < detectedHeaders.length) cells.push('');
+                dataRows.push(cells.slice(0, detectedHeaders.length));
             }
         }
         
-        return results;
-    }
-
-    // Deuxième méthode de secours
-    function extractFallback(ocrText) {
-        const results = [];
-        
-        // Pattern regex plus flexible
-        const pattern = /(\d{7})\s+([A-Za-z0-9\s\.\-\(\)]+?)\s+\d{2}-\d{2}-\d{4}\s+(\d+[\.,]\d{2})\s+PCE\s+\d+[\.,]\d{2}\s+\d+[\.,]\d{2}\s+(\d+[\.,]\d{2})/gi;
-        
-        let match;
-        while ((match = pattern.exec(ocrText)) !== null) {
-            results.push({
-                artikel: match[1],
-                omschrijving: match[2].trim(),
-                aantal: match[3].replace(',', '.'),
-                totaal: match[4].replace(',', '.')
-            });
+        // Nettoyer les données : remplacer les virgules décimales
+        for (let row of dataRows) {
+            for (let i = 0; i < row.length; i++) {
+                if (/^\d+,\d{2}$/.test(row[i])) {
+                    row[i] = row[i].replace(',', '.');
+                }
+            }
         }
         
-        return results;
+        return { headers: detectedHeaders, rows: dataRows };
     }
 
-    async function runOcrOnImage(imageDataUrl) {
-        return new Promise((resolve, reject) => {
-            Tesseract.recognize(
-                imageDataUrl,
-                'nld',
-                {
-                    logger: m => console.log(m),
-                    tessedit_pageseg_mode: 6
+    // Détection automatique intelligente
+    function autoDetectMapping() {
+        const newMapping = { artikel: -1, omschrijving: -1, aantal: -1, totaal: -1 };
+        
+        for (let i = 0; i < headers.length; i++) {
+            const h = headers[i].toLowerCase();
+            
+            if (newMapping.artikel === -1 && (h.includes('artikel') || h.includes('art.') || h.includes('product') || h.includes('code'))) {
+                newMapping.artikel = i;
+            }
+            if (newMapping.omschrijving === -1 && (h.includes('omschrijving') || h.includes('description') || h.includes('product') || h.includes('naam'))) {
+                newMapping.omschrijving = i;
+            }
+            if (newMapping.aantal === -1 && (h.includes('aantal') || h.includes('quantity') || h.includes('qty') || h.includes('hoeveelheid'))) {
+                newMapping.aantal = i;
+            }
+            if (newMapping.totaal === -1 && (h.includes('totaal') || h.includes('total') || h.includes('bedrag') || h.includes('prijs'))) {
+                newMapping.totaal = i;
+            }
+        }
+        
+        // Si certains ne sont pas trouvés, essayer de deviner par type de données
+        if (parsedRows.length > 0) {
+            for (let i = 0; i < headers.length; i++) {
+                if (newMapping.artikel === -1 && parsedRows.some(row => row[i] && row[i].match(/^\d{6,}$/))) {
+                    newMapping.artikel = i;
                 }
-            ).then(({ data: { text } }) => resolve(text)).catch(reject);
-        });
+                if (newMapping.aantal === -1 && parsedRows.some(row => row[i] && row[i].match(/^\d+[\.,]?\d*$/) && parseFloat(row[i]) < 1000)) {
+                    newMapping.aantal = i;
+                }
+                if (newMapping.totaal === -1 && parsedRows.some(row => row[i] && row[i].match(/^\d+[\.,]?\d*$/) && parseFloat(row[i]) > 10)) {
+                    newMapping.totaal = i;
+                }
+            }
+        }
+        
+        return newMapping;
+    }
+
+    // Appliquer le mapping et générer extractedData
+    function applyMappingAndRender() {
+        extractedData = [];
+        
+        for (let row of parsedRows) {
+            const item = {
+                artikel: mapping.artikel !== -1 && row[mapping.artikel] ? row[mapping.artikel] : '',
+                omschrijving: mapping.omschrijving !== -1 && row[mapping.omschrijving] ? row[mapping.omschrijving] : '',
+                aantal: mapping.aantal !== -1 && row[mapping.aantal] ? row[mapping.aantal] : '',
+                totaal: mapping.totaal !== -1 && row[mapping.totaal] ? row[mapping.totaal] : ''
+            };
+            
+            // Nettoyer les valeurs
+            if (item.aantal) item.aantal = item.aantal.replace(',', '.');
+            if (item.totaal) item.totaal = item.totaal.replace(',', '.');
+            
+            // N'inclure que les lignes avec au moins l'article ou la description
+            if (item.artikel || item.omschrijving) {
+                extractedData.push(item);
+            }
+        }
+        
+        renderTable();
+        
+        const mappingStatus = document.getElementById('mappingStatus');
+        mappingStatus.innerHTML = `📌 Artikel: ${mapping.artikel !== -1 ? headers[mapping.artikel] : '❌'} | 
+                                   📝 Omschrijving: ${mapping.omschrijving !== -1 ? headers[mapping.omschrijving] : '❌'} | 
+                                   🔢 Aantal: ${mapping.aantal !== -1 ? headers[mapping.aantal] : '❌'} | 
+                                   💰 Totaal: ${mapping.totaal !== -1 ? headers[mapping.totaal] : '❌'}`;
     }
 
     function renderTable() {
+        const tbody = document.getElementById('tableBody');
+        const thead = document.getElementById('tableHeader');
+        const rowCountSpan = document.getElementById('rowCount');
+        
+        if (!parsedRows.length || !headers.length) {
+            tbody.innerHTML = '<tr><td colspan="10" class="px-4 py-8 text-center text-gray-400">Aucune donnée</td></tr>';
+            thead.innerHTML = '';
+            rowCountSpan.textContent = '0 ligne(s)';
+            return;
+        }
+        
+        // Afficher TOUTES les colonnes avec surbrillance pour le mapping
+        thead.innerHTML = '';
+        const headerRow = document.createElement('tr');
+        headers.forEach((h, idx) => {
+            const th = document.createElement('th');
+            th.className = `px-3 py-2 text-left text-xs font-medium uppercase tracking-wider border-b cursor-pointer hover:bg-gray-100
+                ${mapping.artikel === idx ? 'bg-blue-100' : ''}
+                ${mapping.omschrijving === idx ? 'bg-green-100' : ''}
+                ${mapping.aantal === idx ? 'bg-orange-100' : ''}
+                ${mapping.totaal === idx ? 'bg-purple-100' : ''}`;
+            th.textContent = h;
+            th.setAttribute('data-col', idx);
+            th.onclick = (e) => {
+                e.stopPropagation();
+                if (selectedMapping !== null) {
+                    mapping[selectedMapping] = idx;
+                    selectedMapping = null;
+                    document.getElementById('mappingStatus').innerHTML += ` → ${headers[idx]} ✓`;
+                    applyMappingAndRender();
+                    renderTable(); // Re-render pour les couleurs
+                }
+            };
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        
+        // Afficher les lignes
+        tbody.innerHTML = '';
+        for (let row of parsedRows) {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50 cursor-pointer';
+            for (let i = 0; i < headers.length; i++) {
+                const td = document.createElement('td');
+                td.className = `px-3 py-2 border-b text-gray-700 text-xs
+                    ${mapping.artikel === i ? 'bg-blue-50' : ''}
+                    ${mapping.omschrijving === i ? 'bg-green-50' : ''}
+                    ${mapping.aantal === i ? 'bg-orange-50' : ''}
+                    ${mapping.totaal === i ? 'bg-purple-50' : ''}`;
+                td.textContent = row[i] || '';
+                tr.appendChild(td);
+            }
+            tbody.appendChild(tr);
+        }
+        
+        rowCountSpan.textContent = `${parsedRows.length} ligne(s) brute(s) → ${extractedData.length} extraite(s)`;
+        
+        // Afficher le panneau de config
+        document.getElementById('configPanel').classList.remove('hidden');
+    }
+
+    function renderExtractedData() {
+        const tbody = document.getElementById('tableBody');
         const rowCountSpan = document.getElementById('rowCount');
         
         if (!extractedData.length) {
-            document.getElementById('tableBody').innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">❌ Aucune donnée extraite</td></tr>`;
-            rowCountSpan.textContent = `0 ligne(s)`;
+            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">Aucune donnée extraite. Utilisez la détection auto ou le mapping manuel.</td></tr>';
+            rowCountSpan.textContent = '0 ligne(s)';
             return;
         }
-
+        
         rowCountSpan.textContent = `${extractedData.length} ligne(s)`;
-        const tbody = document.getElementById('tableBody');
         tbody.innerHTML = '';
         
         extractedData.forEach((row, idx) => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-gray-50';
             tr.innerHTML = `
-                <td class="px-4 py-3 text-sm text-gray-900 font-mono">${escapeHtml(row.artikel)}</td>
-                <td class="px-4 py-3 text-sm text-gray-700">${escapeHtml(row.omschrijving)}</td>
-                <td class="px-4 py-3 text-sm text-gray-900">${escapeHtml(row.aantal)}</td>
-                <td class="px-4 py-3 text-sm text-gray-900 font-mono">€ ${escapeHtml(row.totaal)}</td>
+                <td class="px-4 py-3 text-sm font-mono">${escapeHtml(row.artikel || '-')}</td>
+                <td class="px-4 py-3 text-sm">${escapeHtml(row.omschrijving || '-')}</td>
+                <td class="px-4 py-3 text-sm">${escapeHtml(row.aantal || '-')}</td>
+                <td class="px-4 py-3 text-sm font-mono">${escapeHtml(row.totaal ? '€ ' + row.totaal : '-')}</td>
                 <td class="px-4 py-3 whitespace-nowrap">
                     <div class="flex gap-2">
-                        <button class="copy-artikel bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded" data-idx="${idx}">📋 Art.</button>
-                        <button class="copy-desc bg-green-500 hover:bg-green-600 text-white text-xs px-2 py-1 rounded" data-idx="${idx}">📋 Desc.</button>
-                        <button class="copy-qty bg-orange-500 hover:bg-orange-600 text-white text-xs px-2 py-1 rounded" data-idx="${idx}">📋 Aantal</button>
-                        <button class="copy-total bg-purple-500 hover:bg-purple-600 text-white text-xs px-2 py-1 rounded" data-idx="${idx}">📋 Totaal</button>
+                        <button class="copy-artikel bg-blue-500 text-white text-xs px-2 py-1 rounded" data-idx="${idx}">📋 Art.</button>
+                        <button class="copy-desc bg-green-500 text-white text-xs px-2 py-1 rounded" data-idx="${idx}">📋 Desc.</button>
+                        <button class="copy-qty bg-orange-500 text-white text-xs px-2 py-1 rounded" data-idx="${idx}">📋 Aantal</button>
+                        <button class="copy-total bg-purple-500 text-white text-xs px-2 py-1 rounded" data-idx="${idx}">📋 Totaal</button>
                     </div>
                 </td>
             `;
             tbody.appendChild(tr);
         });
-
+        
+        // Attacher événements
         document.querySelectorAll('.copy-artikel').forEach(btn => {
-            btn.addEventListener('click', () => copyToClipboard(extractedData[btn.dataset.idx].artikel, 'Artikel'));
+            btn.onclick = () => copyToClipboard(extractedData[btn.dataset.idx].artikel, 'Artikel');
         });
         document.querySelectorAll('.copy-desc').forEach(btn => {
-            btn.addEventListener('click', () => copyToClipboard(extractedData[btn.dataset.idx].omschrijving, 'Description'));
+            btn.onclick = () => copyToClipboard(extractedData[btn.dataset.idx].omschrijving, 'Description');
         });
         document.querySelectorAll('.copy-qty').forEach(btn => {
-            btn.addEventListener('click', () => copyToClipboard(extractedData[btn.dataset.idx].aantal, 'Quantité'));
+            btn.onclick = () => copyToClipboard(extractedData[btn.dataset.idx].aantal, 'Quantité');
         });
         document.querySelectorAll('.copy-total').forEach(btn => {
-            btn.addEventListener('click', () => copyToClipboard(extractedData[btn.dataset.idx].totaal, 'Total'));
+            btn.onclick = () => copyToClipboard(extractedData[btn.dataset.idx].totaal, 'Total');
         });
     }
     
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
+    function escapeHtml(str) { return str ? str.replace(/[&<>]/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])) : ''; }
+
+    async function runOcrOnImage(imageDataUrl) {
+        return new Promise((resolve, reject) => {
+            Tesseract.recognize(imageDataUrl, 'nld', { logger: m => console.log(m), tessedit_pageseg_mode: 6 })
+                .then(({ data: { text } }) => resolve(text)).catch(reject);
         });
     }
 
@@ -264,42 +372,31 @@
         const isPdf = file.type === 'application/pdf';
         const isImage = file.type.startsWith('image/');
         
-        if (!isPdf && !isImage) {
-            showToast("Format non supporté", true);
-            return;
-        }
+        if (!isPdf && !isImage) { showToast("Format non supporté", true); return; }
         
         const statusDiv = document.getElementById('status');
         statusDiv.classList.remove('hidden');
-        statusDiv.innerHTML = '<span class="text-blue-600">⏳ Traitement en cours...</span>';
+        statusDiv.innerHTML = '<span class="text-blue-600">⏳ Traitement...</span>';
         
         try {
             let imagesDataUrls = [];
             
             if (isImage) {
                 const reader = new FileReader();
-                const dataUrl = await new Promise((resolve) => {
-                    reader.onload = e => resolve(e.target.result);
-                    reader.readAsDataURL(file);
-                });
+                const dataUrl = await new Promise((resolve) => { reader.onload = e => resolve(e.target.result); reader.readAsDataURL(file); });
                 imagesDataUrls.push(dataUrl);
-            } 
-            else if (isPdf) {
+            } else {
                 const arrayBuffer = await file.arrayBuffer();
-                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-                const pdf = await loadingTask.promise;
-                const numPages = pdf.numPages;
-                const maxPages = Math.min(numPages, 3);
-                
-                for (let i = 1; i <= maxPages; i++) {
-                    statusDiv.innerHTML = `<span class="text-blue-600">📄 Page ${i}/${maxPages}...</span>`;
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const numPages = Math.min(pdf.numPages, 3);
+                for (let i = 1; i <= numPages; i++) {
+                    statusDiv.innerHTML = `<span class="text-blue-600">📄 Page ${i}/${numPages}...</span>`;
                     const page = await pdf.getPage(i);
                     const viewport = page.getViewport({ scale: 2.5 });
                     const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
-                    await page.render({ canvasContext: context, viewport: viewport }).promise;
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
                     imagesDataUrls.push(canvas.toDataURL());
                 }
             }
@@ -307,88 +404,79 @@
             let fullText = '';
             for (let i = 0; i < imagesDataUrls.length; i++) {
                 statusDiv.innerHTML = `<span class="text-blue-600">🔍 OCR page ${i+1}/${imagesDataUrls.length}...</span>`;
-                const ocrText = await runOcrOnImage(imagesDataUrls[i]);
-                fullText += ocrText + '\n';
+                fullText += await runOcrOnImage(imagesDataUrls[i]) + '\n';
             }
             
             rawOcrText = fullText;
             document.getElementById('rawTextContent').textContent = rawOcrText;
             
-            let results = extractFromCoolmarkInvoice(fullText);
+            const parsed = parseOcrToTable(fullText);
+            headers = parsed.headers;
+            parsedRows = parsed.rows;
             
-            if (results.length === 0) {
-                results = extractFallback(fullText);
+            if (!parsedRows.length) {
+                document.getElementById('tableBody').innerHTML = '<tr><td colspan="10" class="px-4 py-8 text-center text-red-500">❌ Aucune donnée tabulaire détectée</td></tr>';
+                statusDiv.innerHTML = '<span class="text-red-600">⚠️ Aucune donnée</span>';
+                return;
             }
             
-            extractedData = results;
+            // Détection auto
+            mapping = autoDetectMapping();
+            applyMappingAndRender();
+            renderExtractedData();
             
-            if (extractedData.length === 0) {
-                document.getElementById('tableBody').innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-red-500">
-                    ❌ Aucune donnée trouvée.<br>
-                    <span class="text-xs">Cliquez sur "Afficher le texte OCR brut" pour voir ce qui a été extrait.</span>
-                </td></tr>`;
-                statusDiv.innerHTML = '<span class="text-red-600">⚠️ Aucune donnée extraite</span>';
-            } else {
-                renderTable();
-                statusDiv.innerHTML = `<span class="text-green-600">✅ ${extractedData.length} ligne(s) extraite(s) !</span>`;
-                showToast(`✅ ${extractedData.length} lignes extraites`);
-            }
-            
+            statusDiv.innerHTML = `<span class="text-green-600">✅ ${parsedRows.length} lignes trouvées</span>`;
             setTimeout(() => statusDiv.classList.add('hidden'), 3000);
             
         } catch (err) {
             console.error(err);
-            document.getElementById('tableBody').innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-red-500">❌ Erreur: ${err.message}</td></tr>`;
-            showToast("Erreur OCR", true);
+            showToast("Erreur: " + err.message, true);
         }
     }
     
-    document.getElementById('exportAllBtn').addEventListener('click', () => {
-        if (!extractedData.length) {
-            showToast("Aucune donnée à exporter", true);
-            return;
-        }
-        
-        let csvContent = "\uFEFFArtikelnummer;Omschrijving;Aantal;Totaal (€)\n";
-        extractedData.forEach(row => {
-            csvContent += `"${(row.artikel || '').replace(/"/g, '""')}";"${(row.omschrijving || '').replace(/"/g, '""')}";"${row.aantal || ''}";"${row.totaal || ''}"\n`;
-        });
-        
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Événements UI
+    document.getElementById('uploadZone').onclick = () => document.getElementById('fileInput').click();
+    document.getElementById('fileInput').onchange = (e) => { if (e.target.files[0]) processFile(e.target.files[0]); };
+    
+    document.getElementById('toggleRawText').onclick = () => document.getElementById('rawTextContainer').classList.toggle('hidden');
+    
+    document.getElementById('autoDetectBtn').onclick = () => {
+        mapping = autoDetectMapping();
+        applyMappingAndRender();
+        renderExtractedData();
+        showToast("Détection automatique appliquée");
+    };
+    
+    document.getElementById('mapArtikelBtn').onclick = () => { selectedMapping = 'artikel'; showToast("Cliquez sur une colonne pour définir ARTIKEL"); };
+    document.getElementById('mapDescBtn').onclick = () => { selectedMapping = 'omschrijving'; showToast("Cliquez sur une colonne pour définir OMSCHRIJVING"); };
+    document.getElementById('MapQtyBtn').onclick = () => { selectedMapping = 'aantal'; showToast("Cliquez sur une colonne pour définir AANTAL"); };
+    document.getElementById('mapTotalBtn').onclick = () => { selectedMapping = 'totaal'; showToast("Cliquez sur une colonne pour définir TOTAAL"); };
+    document.getElementById('clearMappingBtn').onclick = () => { mapping = { artikel: -1, omschrijving: -1, aantal: -1, totaal: -1 }; applyMappingAndRender(); renderExtractedData(); showToast("Mapping effacé"); };
+    
+    document.getElementById('exportAllBtn').onclick = () => {
+        if (!extractedData.length) { showToast("Aucune donnée", true); return; }
+        let csv = "\uFEFFArtikelnummer;Omschrijving;Aantal;Totaal\n";
+        extractedData.forEach(row => { csv += `"${(row.artikel||'').replace(/"/g,'""')}";"${(row.omschrijving||'').replace(/"/g,'""')}";"${row.aantal||''}";"${row.totaal||''}"\n`; });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.href = url;
-        link.setAttribute('download', 'factuur_data.csv');
-        document.body.appendChild(link);
+        link.href = URL.createObjectURL(blob);
+        link.download = 'extracted_data.csv';
         link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(link.href);
         showToast("CSV exporté");
-    });
+    };
     
-    const toggleRawText = document.getElementById('toggleRawText');
-    const rawTextContainer = document.getElementById('rawTextContainer');
-    toggleRawText.addEventListener('click', () => {
-        rawTextContainer.classList.toggle('hidden');
-    });
+    document.getElementById('copyAllArtikelBtn').onclick = () => {
+        const artikelList = extractedData.map(r => r.artikel).filter(a => a).join('\n');
+        if (artikelList) copyToClipboard(artikelList, `${extractedData.length} articles`);
+        else showToast("Aucun article à copier", true);
+    };
     
-    document.getElementById('uploadZone').addEventListener('click', () => document.getElementById('fileInput').click());
-    document.getElementById('uploadZone').addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.currentTarget.classList.add('bg-blue-50');
-    });
-    document.getElementById('uploadZone').addEventListener('dragleave', (e) => {
-        e.currentTarget.classList.remove('bg-blue-50');
-    });
-    document.getElementById('uploadZone').addEventListener('drop', (e) => {
-        e.preventDefault();
-        e.currentTarget.classList.remove('bg-blue-50');
-        const file = e.dataTransfer.files[0];
-        if (file) processFile(file);
-    });
-    document.getElementById('fileInput').addEventListener('change', (e) => {
-        if (e.target.files[0]) processFile(e.target.files[0]);
-    });
+    // Drag & drop
+    const zone = document.getElementById('uploadZone');
+    zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('bg-blue-50'); };
+    zone.ondragleave = () => zone.classList.remove('bg-blue-50');
+    zone.ondrop = (e) => { e.preventDefault(); zone.classList.remove('bg-blue-50'); const file = e.dataTransfer.files[0]; if (file) processFile(file); };
 </script>
 </body>
 </html>
